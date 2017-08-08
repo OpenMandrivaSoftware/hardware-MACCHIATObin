@@ -1,0 +1,137 @@
+#!/bin/sh
+set -x
+set -e
+
+if [ "`id -u`" != 0 ]; then
+	exec sudo "$0" "$@"
+fi
+cd $(dirname $(realpath $0))
+OURDIR="$(pwd)"
+
+ROOTFS=$(mktemp -d /tmp/aarch64-root.XXXXXX)
+if [ -z "$ROOTFS" ]; then
+	echo "Install or fix mktemp"
+	exit 1
+fi
+
+which aarch64-linux-gnu-ld &>/dev/null || urpmi --auto --no-verify-rpm cross-aarch64-mandriva-linux-gnu-binutils
+which make &>/dev/null || urpmi --auto --no-verify-rpm make glibc-devel
+which bc &>/dev/null || urpmi --auto --no-verify-rpm bc
+which gcc &>/dev/null || urpmi --auto --no-verify-rpm gcc
+which aarch64-linux-gnu-gcc &>/dev/null || urpmi --auto --no-verify-rpm cross-aarch64-mandriva-linux-gnu-gcc-bootstrap
+which make_ext4fs &>/dev/null || urpmi --auto --no-verify-rpm android-tools
+which qemu-static-aarch64 &>/dev/null || urpmi --auto --no-verify-rpm qemu-static-aarch64
+
+if ! which make_ext4fs &>/dev/null; then
+	echo "Install android-tools from cooker"
+	exit 1
+fi
+
+if [ -d kernel ]; then
+	cd kernel
+	git pull
+	cd ..
+else
+	git clone --depth 1 -b hardware/MACCHIATObin/4.4.8 https://github.com/OpenMandrivaSoftware/linux.git kernel
+fi
+KERNELDIR=$(pwd)/kernel
+
+cd kernel
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- mvebu_v8_lsp_defconfig
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(getconf _NPROCESSORS_ONLN) Image dtbs modules
+cd ..
+
+# https://abf.openmandriva.org/platforms/cooker/products/47/product_build_lists/1179
+ROOTFS_HASH="3286a8ee346d0cf82a7c5c607a9564ce96fd909e"
+[ -e rootfs-aarch64-systemd.tar.xz ] || wget -O rootfs-aarch64-systemd.tar.xz http://file-store.openmandriva.org/api/v1/file_stores/$ROOTFS_HASH
+
+KERNEL=$(cat ${KERNELDIR}/include/config/kernel.release)
+
+rm -f Android/system.ext4 Android/userdata.ext4
+cd ${ROOTFS}
+tar x --no-fflags -f ${OURDIR}/rootfs-aarch64-systemd.tar.xz
+mount --bind /proc ${ROOTFS}/proc
+mount --bind /sys ${ROOTFS}/sys
+mount --bind /dev ${ROOTFS}/dev
+mount --bind /dev/pts ${ROOTFS}/dev/pts
+mount --bind /run ${ROOTFS}/run
+cat ${ROOTFS}/etc/os-release >${ROOTFS}/usr/lib/os-release
+
+# Create omv user (password omv)
+echo 'omv:x:1001:1001::/home/omv:/bin/bash' >>${ROOTFS}/etc/passwd
+echo 'omv:$6$rG3bQ92hkTNubV1p$5qPB9FoXBhNcSE1FOklCoEDowveAgjSf2cHYVwCENZaWtgpFQaRRRN5Ihwd8nuaKMdA1R1XouOasJ7u5dbiGt0:17302:0:99999:7:::' >>${ROOTFS}/etc/shadow
+echo 'omv:x:1001:' >>${ROOTFS}/etc/group
+sed -i -e 's,wheel:x:10:$,wheel:x:10:omv,' ${ROOTFS}/etc/group
+
+# Unlock root account (also password omv)
+sed -i -e 's,^root:.:,root:$6$rG3bQ92hkTNubV1p$5qPB9FoXBhNcSE1FOklCoEDowveAgjSf2cHYVwCENZaWtgpFQaRRRN5Ihwd8nuaKMdA1R1XouOasJ7u5dbiGt0:,' ${ROOTFS}/etc/shadow
+
+cp /usr/bin/qemu-static-aarch64 ${ROOTFS}/usr/bin
+mkdir -p ${ROOTFS}/boot
+cd ${KERNELDIR}
+for i in arch/arm64/boot/Image* arch/arm64/boot/dts/marvell/armada-8040-mcbin.dtb; do
+	cp $i ${ROOTFS}/boot/$(basename $i)-${KERNEL}
+	ln -s $(basename $i)-${KERNEL} ${ROOTFS}/boot/$(basename $i)
+done
+make modules_install INSTALL_MOD_PATH=${ROOTFS} ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+chroot ${ROOTFS} /usr/sbin/urpmi --auto --no-verify-rpm --auto-update
+chroot ${ROOTFS} /usr/sbin/urpmi --no-verify-rpm --auto kernel-firmware adreno-firmware dracut less procps-ng htop fbset iproute2 net-tools pciutils usbutils wpa_supplicant iw iproute2 net-tools wireless-tools networkmanager openssh-server dhcp-client
+chroot ${ROOTFS} /usr/sbin/urpmi --no-verify-rpm --auto sddm x11-driver-video-ati x11-driver-video-amdgpu x11-driver-video-nouveau x11-driver-video-modesetting radeon-firmware lib64dri-drivers-radeon lib64dri-drivers-nouveau lib64dri-drivers-swrast lib64vdpau-driver-radeonsi lib64vdpau-driver-r300 lib64vdpau-driver-r600 lib64vdpau-driver-nouveau lib64vdpau-driver-softpipe
+chroot ${ROOTFS} /usr/sbin/urpmi --no-verify-rpm --auto vim-enhanced strace
+chroot ${ROOTFS} /usr/sbin/urpmi --no-verify-rpm --auto task-plasma-minimal
+chroot ${ROOTFS} /sbin/dracut --xz -o ifcfg -o lvm -o mdraid -o aufs-mount -f /boot/initrd-${KERNEL}.img ${KERNEL}
+chroot ${ROOTFS} systemctl set-default graphical.target
+chroot ${ROOTFS} systemctl enable getty@tty1.service
+chroot ${ROOTFS} systemctl enable sshd.service
+for i in dbus getty sshd systemd-udevd systemd-udev-trigger NetworkManager systemd-ask-password-wall systemd-logind systemd-networkd systemd-resolved systemd-update-utmp-runlevel systemd-user-sessions; do
+	[ -e ${ROOTFS}/lib/systemd/system/$i.target ] && ln -sf /lib/systemd/system/$i.target ${ROOTFS}/lib/systemd/system/multi-user.target.wants/
+	[ -e ${ROOTFS}/lib/systemd/system/$i.service ] && ln -sf /lib/systemd/system/$i.service ${ROOTFS}/lib/systemd/system/multi-user.target.wants/
+
+	[ -e ${ROOTFS}/lib/systemd/system/$i.target ] && ln -sf /lib/systemd/system/$i.target ${ROOTFS}/lib/systemd/system/graphical.target.wants/
+	[ -e ${ROOTFS}/lib/systemd/system/$i.service ] && ln -sf /lib/systemd/system/$i.service ${ROOTFS}/lib/systemd/system/graphical.target.wants/
+done
+for i in sddm; do
+	[ -e ${ROOTFS}/lib/systemd/system/$i.target ] && ln -sf /lib/systemd/system/$i.target ${ROOTFS}/lib/systemd/system/graphical.target.wants/
+	[ -e ${ROOTFS}/lib/systemd/system/$i.service ] && ln -sf /lib/systemd/system/$i.service ${ROOTFS}/lib/systemd/system/graphical.target.wants/
+done
+cat >${ROOTFS}/etc/fstab <<'EOF'
+/dev/sde18	/	ext4	defaults,noatime,discard	0	0
+/dev/sda9	/home	ext4	defaults,noatime,discard	0	1
+EOF
+
+# FIXME REMOVE BEFORE PRODUCTION BUILD -- allow root login for convenience
+echo 'PermitRootLogin yes' >>${ROOTFS}/etc/ssh/sshd_config
+rm ${ROOTFS}/etc/ssh/denyusers
+touch ${ROOTFS}/etc/ssh/denyusers
+
+cd ${OURDIR}
+rm -f ${ROOTFS}/usr/bin/qemu-static-aarch64
+
+umount ${ROOTFS}/run
+umount ${ROOTFS}/dev/pts
+umount ${ROOTFS}/dev
+umount ${ROOTFS}/sys
+umount ${ROOTFS}/proc
+
+rm -rf ${ROOTFS}/home/*
+mkdir -p ${ROOTFS}/home
+cp -a ${ROOTFS}/etc/skel ${ROOTFS}/home/omv
+chown 1001:1001 ${ROOTFS}/home/omv
+
+truncate -s 2G rootfs.img
+mkfs.ext4 rootfs.img
+ROOTMNT=$(mktemp -d /tmp/aarch64-root.XXXXXX)
+mount -o loop rootfs.img ${ROOTMNT}
+cp -a ${ROOTFS}/* ${ROOTMNT}/
+umount ${ROOTMNT}
+
+rm -rf ${ROOTFS} ${ROOTMNT}
+if [ "$ABF" = "1" ]; then
+	output_dir="$HOME/output"
+	[ -d "$output_dir" ] || mkdir -p $output_dir
+	mv rootfs.img $output_dir
+	pushd kernel
+	make mrproper
+	popd
+fi
+
