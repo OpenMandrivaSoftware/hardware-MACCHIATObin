@@ -118,7 +118,8 @@ mkdir -p ${ROOTFS}/home
 cp -a ${ROOTFS}/etc/skel ${ROOTFS}/home/omv
 chown 1001:1001 ${ROOTFS}/home/omv
 
-truncate -s 2G rootfs.img
+rm -f rootfs.img
+truncate -s 4G rootfs.img
 mkfs.ext4 rootfs.img
 ROOTMNT=$(mktemp -d /tmp/aarch64-root.XXXXXX)
 mount -o loop rootfs.img ${ROOTMNT}
