@@ -19,6 +19,7 @@ which make &>/dev/null || urpmi --auto --no-verify-rpm make glibc-devel
 which bc &>/dev/null || urpmi --auto --no-verify-rpm bc
 which gcc &>/dev/null || urpmi --auto --no-verify-rpm gcc
 which aarch64-linux-gnu-gcc &>/dev/null || urpmi --auto --no-verify-rpm cross-aarch64-mandriva-linux-gnu-gcc-bootstrap
+which dtc &>/dev/null || urpmi --auto --no-verify-rpm dtc
 which make_ext4fs &>/dev/null || urpmi --auto --no-verify-rpm android-tools
 which qemu-static-aarch64 &>/dev/null || urpmi --auto --no-verify-rpm qemu-static-aarch64
 
@@ -39,6 +40,38 @@ KERNELDIR=$(pwd)/kernel
 cd kernel
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- mvebu_v8_lsp_defconfig
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(getconf _NPROCESSORS_ONLN) Image dtbs modules
+cd ..
+
+if [ -d u-boot-marvell ]; then
+	cd u-boot-marvell
+	git pull
+	cd ../binaries-marvell
+	git pull
+	cd ../atf-marvell
+	git pull
+	cd ../mv-ddr-marvell
+	git pull
+	cd ..
+else
+	git clone --depth 1 -b u-boot-2017.03-armada-17.06 https://github.com/MarvellEmbeddedProcessors/u-boot-marvell
+	git clone --depth 1 -b binaries-marvell-armada-17.06 https://github.com/MarvellEmbeddedProcessors/binaries-marvell
+	git clone --depth 1 -b atf-v1.3-armada-17.06 https://github.com/MarvellEmbeddedProcessors/atf-marvell
+	### FIXME switch to mv_ddr-armada-17.08 branch of https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
+	### when our patch to fix building with current toolchains has been accepted
+	#git clone --depth 1 -b mv_ddr-armada-17.06 https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
+	git clone --depth 1 -b omv-gcc72-17.06 https://github.com/OpenMandrivaSoftware/mv-ddr-marvell
+	# Got to love the fact that upstream uses tools that predate dinosaurs...
+	sed -i -e 's,python \$(srctree),python2 $(srctree),g' u-boot-marvell/tools/Makefile
+fi
+cd u-boot-marvell
+make mvebu_mcbin-88f8040_defconfig CROSS_COMPILE=aarch64-linux-gnu-
+make -j4 CROSS_COMPILE=aarch64-linux-gnu-
+export BL33=$(pwd)/u-boot.bin
+cd ..
+export SCP_BL2=$(pwd)/binaries-marvell/RTOSDemo-cm3.bin
+cd atf-marvell
+make USE_COHERENT_MEM=0 LOG_LEVEL=20 MV_DDR_PATH=$(pwd)/../mv-ddr-marvell PLAT=a80x0_mcbin CROSS_COMPILE=aarch64-linux-gnu- LD=aarch64-linux-gnu-ld.bfd all fip
+cp build/a80x0_mcbin/release/flash-image.bin ..
 cd ..
 
 # https://abf.openmandriva.org/platforms/cooker/products/47/product_build_lists/1179
@@ -95,8 +128,8 @@ for i in sddm; do
 	[ -e ${ROOTFS}/lib/systemd/system/$i.service ] && ln -sf /lib/systemd/system/$i.service ${ROOTFS}/lib/systemd/system/graphical.target.wants/
 done
 cat >${ROOTFS}/etc/fstab <<'EOF'
-/dev/sde18	/	ext4	defaults,noatime,discard	0	0
-/dev/sda9	/home	ext4	defaults,noatime,discard	0	1
+/dev/sda1	/	ext4	defaults,noatime,discard	0	0
+/dev/sda2	/home	ext4	defaults,noatime,discard	0	1
 EOF
 
 # FIXME REMOVE BEFORE PRODUCTION BUILD -- allow root login for convenience
@@ -118,19 +151,20 @@ mkdir -p ${ROOTFS}/home
 cp -a ${ROOTFS}/etc/skel ${ROOTFS}/home/omv
 chown 1001:1001 ${ROOTFS}/home/omv
 
-rm -f rootfs.img
-truncate -s 4G rootfs.img
-mkfs.ext4 rootfs.img
-ROOTMNT=$(mktemp -d /tmp/aarch64-root.XXXXXX)
-mount -o loop rootfs.img ${ROOTMNT}
-cp -a ${ROOTFS}/* ${ROOTMNT}/
-umount ${ROOTMNT}
+# Just in case qemu crashes, let's not package
+# its coredumps...
+rm -f ${ROOTFS}/qemu*.core
 
-rm -rf ${ROOTFS} ${ROOTMNT}
+cd "${ROOTFS}"
+tar cf "$OURDIR"/rootfs.tar *
+cd "$OURDIR"
+xz -9 rootfs.tar
+
+rm -rf ${ROOTFS}
 if [ "$ABF" = "1" ]; then
 	output_dir="$HOME/output"
 	[ -d "$output_dir" ] || mkdir -p $output_dir
-	mv rootfs.img $output_dir
+	mv rootfs.tar.xz $output_dir
 	pushd kernel
 	make mrproper
 	popd
