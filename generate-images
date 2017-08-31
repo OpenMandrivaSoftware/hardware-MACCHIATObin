@@ -33,7 +33,7 @@ if [ -d kernel ]; then
 	git pull
 	cd ..
 else
-	git clone --depth 1 -b hardware/MACCHIATObin/4.4.8 https://github.com/OpenMandrivaSoftware/linux.git kernel
+	git clone --depth 1 -b hardware/MACCHIATObin/4.4.52 https://github.com/OpenMandrivaSoftware/linux.git kernel
 fi
 KERNELDIR=$(pwd)/kernel
 
@@ -137,7 +137,17 @@ echo 'PermitRootLogin yes' >>${ROOTFS}/etc/ssh/sshd_config
 rm ${ROOTFS}/etc/ssh/denyusers
 touch ${ROOTFS}/etc/ssh/denyusers
 
+# MACCHIATObin's bootloader doesn't seem to support initramfs properly
+# Let's see if we can just built the initramfs into the kernel...
+cp -f ${ROOTFS}/boot/initrd-${KERNEL}.img ${KERNELDIR}/usr/initramfs_data.cpio.gz
+cd ${KERNELDIR}
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(getconf _NPROCESSORS_ONLN) Image
+for i in arch/arm64/boot/Image* arch/arm64/boot/dts/marvell/armada-8040-mcbin.dtb; do
+	cp -f $i ${ROOTFS}/boot/$(basename $i)-${KERNEL}
+done
+
 cd ${OURDIR}
+
 rm -f ${ROOTFS}/usr/bin/qemu-static-aarch64
 
 umount ${ROOTFS}/run
@@ -158,7 +168,7 @@ rm -f ${ROOTFS}/qemu*.core
 cd "${ROOTFS}"
 tar cf "$OURDIR"/rootfs.tar *
 cd "$OURDIR"
-xz -9 rootfs.tar
+xz -9f rootfs.tar
 
 rm -rf ${ROOTFS}
 if [ "$ABF" = "1" ]; then
