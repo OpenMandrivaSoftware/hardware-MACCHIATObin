@@ -80,7 +80,6 @@ ROOTFS_HASH="3286a8ee346d0cf82a7c5c607a9564ce96fd909e"
 
 KERNEL=$(cat ${KERNELDIR}/include/config/kernel.release)
 
-rm -f Android/system.ext4 Android/userdata.ext4
 cd ${ROOTFS}
 tar x --no-fflags -f ${OURDIR}/rootfs-aarch64-systemd.tar.xz
 mount --bind /proc ${ROOTFS}/proc
