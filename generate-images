@@ -33,7 +33,7 @@ if [ -d kernel ]; then
 	git pull
 	cd ..
 else
-	git clone --depth 1 -b hardware/MACCHIATObin/4.4.52 https://github.com/OpenMandrivaSoftware/linux.git kernel
+	git clone --depth 1 -b hardware/MACCHIATObin/4.4.85 https://github.com/OpenMandrivaSoftware/linux.git kernel
 fi
 KERNELDIR=$(pwd)/kernel
 
@@ -53,13 +53,13 @@ if [ -d u-boot-marvell ]; then
 	git pull
 	cd ..
 else
-	git clone --depth 1 -b u-boot-2017.03-armada-17.06 https://github.com/MarvellEmbeddedProcessors/u-boot-marvell
-	git clone --depth 1 -b binaries-marvell-armada-17.06 https://github.com/MarvellEmbeddedProcessors/binaries-marvell
-	git clone --depth 1 -b atf-v1.3-armada-17.06 https://github.com/MarvellEmbeddedProcessors/atf-marvell
-	### FIXME switch to mv_ddr-armada-17.08 branch of https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
+	git clone --depth 1 -b u-boot-2017.03-armada-17.10 https://github.com/MarvellEmbeddedProcessors/u-boot-marvell
+	git clone --depth 1 -b binaries-marvell-armada-17.10 https://github.com/MarvellEmbeddedProcessors/binaries-marvell
+	git clone --depth 1 -b atf-v1.3-armada-17.10 https://github.com/MarvellEmbeddedProcessors/atf-marvell
+	### FIXME switch to mv_ddr-armada-17.10 branch of https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
 	### when our patch to fix building with current toolchains has been accepted
-	#git clone --depth 1 -b mv_ddr-armada-17.06 https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
-	git clone --depth 1 -b omv-gcc72-17.06 https://github.com/OpenMandrivaSoftware/mv-ddr-marvell
+	#git clone --depth 1 -b mv_ddr-armada-17.10 https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
+	git clone --depth 1 -b omv-gcc72-17.10 https://github.com/OpenMandrivaSoftware/mv-ddr-marvell
 	# Got to love the fact that upstream uses tools that predate dinosaurs...
 	sed -i -e 's,python \$(srctree),python2 $(srctree),g' u-boot-marvell/tools/Makefile
 fi
@@ -68,7 +68,7 @@ make mvebu_mcbin-88f8040_defconfig CROSS_COMPILE=aarch64-linux-gnu-
 make -j4 CROSS_COMPILE=aarch64-linux-gnu-
 export BL33=$(pwd)/u-boot.bin
 cd ..
-export SCP_BL2=$(pwd)/binaries-marvell/RTOSDemo-cm3.bin
+export SCP_BL2=$(pwd)/binaries-marvell/mrvl_scp_bl2_8040.img
 cd atf-marvell
 make USE_COHERENT_MEM=0 LOG_LEVEL=20 MV_DDR_PATH=$(pwd)/../mv-ddr-marvell PLAT=a80x0_mcbin CROSS_COMPILE=aarch64-linux-gnu- LD=aarch64-linux-gnu-ld.bfd all fip
 cp build/a80x0_mcbin/release/flash-image.bin ..
@@ -108,10 +108,25 @@ for i in arch/arm64/boot/Image* arch/arm64/boot/dts/marvell/armada-8040-mcbin.dt
 done
 make modules_install INSTALL_MOD_PATH=${ROOTFS} ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
 chroot ${ROOTFS} /usr/sbin/urpmi --auto --no-verify-rpm --auto-update
-chroot ${ROOTFS} /usr/sbin/urpmi --no-verify-rpm --auto kernel-firmware adreno-firmware dracut less procps-ng htop fbset iproute2 net-tools pciutils usbutils wpa_supplicant iw iproute2 net-tools wireless-tools networkmanager openssh-server dhcp-client
+chroot ${ROOTFS} /usr/sbin/urpmi --no-verify-rpm --auto kernel-firmware dracut less procps-ng htop fbset iproute2 net-tools pciutils usbutils wpa_supplicant iw iproute2 net-tools wireless-tools networkmanager openssh-server dhcp-client
 chroot ${ROOTFS} /usr/sbin/urpmi --no-verify-rpm --auto sddm x11-driver-video-ati x11-driver-video-amdgpu x11-driver-video-nouveau x11-driver-video-modesetting radeon-firmware lib64dri-drivers-radeon lib64dri-drivers-nouveau lib64dri-drivers-swrast lib64vdpau-driver-radeonsi lib64vdpau-driver-r300 lib64vdpau-driver-r600 lib64vdpau-driver-nouveau lib64vdpau-driver-softpipe
 chroot ${ROOTFS} /usr/sbin/urpmi --no-verify-rpm --auto vim-enhanced strace
 chroot ${ROOTFS} /usr/sbin/urpmi --no-verify-rpm --auto task-plasma-minimal
+chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto basesystem-minimal distro-release-common distro-release-OpenMandriva meta-task alsa-plugins alsa-plugins-pulseaudio alsa-utils bootsplash bootloader-utils \
+	distro-theme-OpenMandriva distro-theme-OpenMandriva-screensaver dynamic indexhtml info info-install irqbalance mailcap man mktemp mkxauth mlocate plymouth-system-theme shared-desktop-ontologies \
+	sound-scripts sound-theme-freedesktop soundwrapper sudo task-x11 tmpwatch upower urw-fonts wget whois xdg-compliance xdg-user-dirs xdg-utils xrandr zip unzip \
+	aria2 bash-completion bind-utils cdialog command-not-found gnupg htop lame networkmanager-openvpn open rsync sane-backends sash qupzilla fonts-ttf-decoratives fonts-ttf-dejavu \
+	fonts-ttf-droid fonts-ttf-liberation fonts-ttf-west_european google-crosextra-carlito-fonts google-crosextra-caladea-fonts noto-sans-fonts \
+	noto-sans-cjk-fonts noto-serif-fonts noto-serif-thai x11-font-cyrillic x11-compose-cache x11-tools x11-font-type1 x11-font-misc x11-data-cursor-themes \
+	task-pulseaudio alsa-plugins-pulseaudio pavucontrol-qt pulseaudio pulseaudio-module-bluetooth pulseaudio-module-gconf pulseaudio-module-x11 pulseaudio-module-zeroconf pulseaudio-utils \
+	smplayer mpv udisks2
+#chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto task-printing libreoffice-calc libreoffice-common libreoffice-draw libreoffice-impress libreoffice-kde4 libreoffice-math libreoffice-style-oxygen libreoffice-writer
+chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto extremetuxracer
+chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto kernel-firmware adreno-firmware dracut less procps-ng htop fbset iproute2 net-tools pciutils usbutils wpa_supplicant iw iproute2 net-tools wireless-tools networkmanager openssh-server dhcp-client
+chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto sddm x11-driver-video-modesetting lib64dri-drivers-freedreno
+chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto task-plasma phonon4qt5-gstreamer fcitx-qt5 showfoto enchant ffmpeg jasper nss openssl poppler-data oma-welcome
+chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto task-lxqt
+chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto vim-enhanced strace
 chroot ${ROOTFS} /sbin/dracut --xz -o ifcfg -o lvm -o mdraid -o aufs-mount -f /boot/initrd-${KERNEL}.img ${KERNEL}
 chroot ${ROOTFS} systemctl set-default graphical.target
 chroot ${ROOTFS} systemctl enable getty@tty1.service
