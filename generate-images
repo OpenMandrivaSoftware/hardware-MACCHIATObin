@@ -33,12 +33,12 @@ if [ -d kernel ]; then
 	git pull
 	cd ..
 else
-	git clone --depth 1 -b hardware/MACCHIATObin/4.4.85 https://github.com/OpenMandrivaSoftware/linux.git kernel
+	git clone --depth 1 -b hardware/MACCHIATObin/master https://github.com/OpenMandrivaSoftware/linux.git kernel
 fi
 KERNELDIR=$(pwd)/kernel
 
 cd kernel
-make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- mvebu_v8_lsp_defconfig
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- mcbin_defconfig
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(getconf _NPROCESSORS_ONLN) Image dtbs modules
 cd ..
 
