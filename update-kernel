@@ -1,0 +1,108 @@
+#!/bin/sh
+set -x
+set -e
+
+if [ "`id -u`" != 0 ]; then
+	exec sudo "$0" "$@"
+fi
+cd $(dirname $(realpath $0))
+OURDIR="$(pwd)"
+
+if ! [ -e rootfs.tar.xz ]; then
+	echo "Build a rootfs first"
+	exit 1
+fi
+
+ROOTFS=$(mktemp -d /tmp/aarch64-root.XXXXXX)
+if [ -z "$ROOTFS" ]; then
+	echo "Install or fix mktemp"
+	exit 1
+fi
+
+which aarch64-linux-gnu-ld &>/dev/null || urpmi --auto --no-verify-rpm cross-aarch64-mandriva-linux-gnu-binutils
+which make &>/dev/null || urpmi --auto --no-verify-rpm make glibc-devel
+which bc &>/dev/null || urpmi --auto --no-verify-rpm bc
+which gcc &>/dev/null || urpmi --auto --no-verify-rpm gcc
+which aarch64-linux-gnu-gcc &>/dev/null || urpmi --auto --no-verify-rpm cross-aarch64-mandriva-linux-gnu-gcc-bootstrap
+which dtc &>/dev/null || urpmi --auto --no-verify-rpm dtc
+which make_ext4fs &>/dev/null || urpmi --auto --no-verify-rpm android-tools
+which qemu-static-aarch64 &>/dev/null || urpmi --auto --no-verify-rpm qemu-static-aarch64
+
+if ! which make_ext4fs &>/dev/null; then
+	echo "Install android-tools from cooker"
+	exit 1
+fi
+
+if [ -d kernel ]; then
+	cd kernel
+	git pull
+	cd ..
+else
+	git clone --depth 1 -b hardware/MACCHIATObin/master https://github.com/OpenMandrivaSoftware/linux.git kernel
+fi
+KERNELDIR=$(pwd)/kernel
+
+cd kernel
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- mcbin_defconfig
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(getconf _NPROCESSORS_ONLN) Image dtbs modules
+cd ..
+
+KERNEL=$(cat ${KERNELDIR}/include/config/kernel.release)
+
+cd ${ROOTFS}
+tar x --no-fflags -f ${OURDIR}/rootfs.tar.xz
+mount --bind /proc ${ROOTFS}/proc
+mount --bind /sys ${ROOTFS}/sys
+mount --bind /dev ${ROOTFS}/dev
+mount --bind /dev/pts ${ROOTFS}/dev/pts
+mount --bind /run ${ROOTFS}/run
+cat ${ROOTFS}/etc/os-release >${ROOTFS}/usr/lib/os-release
+
+cp /usr/bin/qemu-static-aarch64 ${ROOTFS}/usr/bin
+
+# Remove remains of previous kernel installations
+rm -rf ${ROOTFS}/boot/Image* ${ROOTFS}/boot/initrd* ${ROOTFS}/boot/*.dtb* ${ROOTFS}/lib/modules/*
+mkdir -p ${ROOTFS}/boot
+cd ${KERNELDIR}
+for i in arch/arm64/boot/Image* arch/arm64/boot/dts/marvell/armada-8040-mcbin.dtb; do
+	cp -f $i ${ROOTFS}/boot/$(basename $i)-${KERNEL}
+	ln -sf $(basename $i)-${KERNEL} ${ROOTFS}/boot/$(basename $i)
+done
+make modules_install INSTALL_MOD_PATH=${ROOTFS} ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --auto --no-verify-rpm --auto-update
+chroot ${ROOTFS} /sbin/dracut --xz -o ifcfg -o lvm -o mdraid -o aufs-mount -f /boot/initrd-${KERNEL}.img ${KERNEL}
+
+# MACCHIATObin's bootloader doesn't seem to support initramfs properly
+# Let's see if we can just built the initramfs into the kernel...
+cp -f ${ROOTFS}/boot/initrd-${KERNEL}.img ${KERNELDIR}/usr/initramfs_data.cpio.gz
+cd ${KERNELDIR}
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(getconf _NPROCESSORS_ONLN) Image
+for i in arch/arm64/boot/Image* arch/arm64/boot/dts/marvell/armada-8040-mcbin.dtb; do
+	cp -f $i ${ROOTFS}/boot/$(basename $i)-${KERNEL}
+done
+
+cd ${OURDIR}
+
+rm -f ${ROOTFS}/usr/bin/qemu-static-aarch64
+
+umount ${ROOTFS}/run
+umount ${ROOTFS}/dev/pts
+umount ${ROOTFS}/dev
+umount ${ROOTFS}/sys
+umount ${ROOTFS}/proc
+
+rm -rf ${ROOTFS}/home/*
+mkdir -p ${ROOTFS}/home
+cp -a ${ROOTFS}/etc/skel ${ROOTFS}/home/omv
+chown 1001:1001 ${ROOTFS}/home/omv
+
+# Just in case qemu crashes, let's not package
+# its coredumps...
+rm -f ${ROOTFS}/qemu*.core
+
+cd "${ROOTFS}"
+tar cf "$OURDIR"/rootfs.tar *
+cd "$OURDIR"
+xz -9f rootfs.tar
+
+rm -rf ${ROOTFS}
