@@ -54,9 +54,12 @@ if [ -d u-boot-marvell ]; then
 	cd ..
 else
 	### FIXME switch to u-boot-2017.03-armada-17.10 branch of https://github.com/MarvellEmbeddedProcessors/u-boot-marvell
-	### when our patch to fix building with current toolchains has been accepted
+	### when our patches to
+	### - fix building with current toolchains
+	### - enable USB 2.0 ports
+	### have been accepted
 	#git clone --depth 1 -b u-boot-2017.03-armada-17.10 https://github.com/MarvellEmbeddedProcessors/u-boot-marvell
-	git clone --depth 1 -b 17.10-gcc-7.2 https://github.com/OpenMandrivaSoftware/u-boot-marvell
+	git clone --depth 1 -b 17.10-omv https://github.com/OpenMandrivaSoftware/u-boot-marvell
 	git clone --depth 1 -b binaries-marvell-armada-17.10 https://github.com/MarvellEmbeddedProcessors/binaries-marvell
 	git clone --depth 1 -b atf-v1.3-armada-17.10 https://github.com/MarvellEmbeddedProcessors/atf-marvell
 	### FIXME switch to mv_ddr-armada-17.10 branch of https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
