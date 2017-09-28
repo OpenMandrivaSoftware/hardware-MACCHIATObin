@@ -53,7 +53,10 @@ if [ -d u-boot-marvell ]; then
 	git pull
 	cd ..
 else
-	git clone --depth 1 -b u-boot-2017.03-armada-17.10 https://github.com/MarvellEmbeddedProcessors/u-boot-marvell
+	### FIXME switch to u-boot-2017.03-armada-17.10 branch of https://github.com/MarvellEmbeddedProcessors/u-boot-marvell
+	### when our patch to fix building with current toolchains has been accepted
+	#git clone --depth 1 -b u-boot-2017.03-armada-17.10 https://github.com/MarvellEmbeddedProcessors/u-boot-marvell
+	git clone --depth 1 -b 17.10-gcc-7.2 https://github.com/OpenMandrivaSoftware/u-boot-marvell
 	git clone --depth 1 -b binaries-marvell-armada-17.10 https://github.com/MarvellEmbeddedProcessors/binaries-marvell
 	git clone --depth 1 -b atf-v1.3-armada-17.10 https://github.com/MarvellEmbeddedProcessors/atf-marvell
 	### FIXME switch to mv_ddr-armada-17.10 branch of https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
@@ -124,7 +127,7 @@ chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto extrem
 chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto kernel-firmware adreno-firmware dracut less procps-ng htop fbset iproute2 net-tools pciutils usbutils wpa_supplicant iw iproute2 net-tools wireless-tools networkmanager openssh-server dhcp-client
 chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto sddm x11-driver-video-modesetting lib64dri-drivers-freedreno
 chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto task-plasma phonon4qt5-gstreamer fcitx-qt5 showfoto enchant ffmpeg jasper nss openssl poppler-data oma-welcome
-chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto task-lxqt
+#chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto task-lxqt
 chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto vim-enhanced strace
 chroot ${ROOTFS} /sbin/dracut --xz -o ifcfg -o lvm -o mdraid -o aufs-mount -f /boot/initrd-${KERNEL}.img ${KERNEL}
 chroot ${ROOTFS} systemctl set-default graphical.target
