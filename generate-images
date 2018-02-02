@@ -21,7 +21,7 @@ which gcc &>/dev/null || urpmi --auto --no-verify-rpm gcc
 which aarch64-linux-gnu-gcc &>/dev/null || urpmi --auto --no-verify-rpm cross-aarch64-mandriva-linux-gnu-gcc-bootstrap
 which dtc &>/dev/null || urpmi --auto --no-verify-rpm dtc
 which make_ext4fs &>/dev/null || urpmi --auto --no-verify-rpm android-tools
-which qemu-static-aarch64 &>/dev/null || urpmi --auto --no-verify-rpm qemu-static-aarch64
+which qemu-static-aarch64 &>/dev/null || ( urpmi --auto --no-verify-rpm qemu-static-aarch64 && systemctl restart systemd-binfmt )
 
 if ! which make_ext4fs &>/dev/null; then
 	echo "Install android-tools from cooker"
@@ -61,7 +61,8 @@ else
 	#git clone --depth 1 -b u-boot-2017.03-armada-17.10 https://github.com/MarvellEmbeddedProcessors/u-boot-marvell
 	git clone --depth 1 -b 17.10-omv https://github.com/OpenMandrivaSoftware/u-boot-marvell
 	git clone --depth 1 -b binaries-marvell-armada-17.10 https://github.com/MarvellEmbeddedProcessors/binaries-marvell
-	git clone --depth 1 -b atf-v1.3-armada-17.10 https://github.com/MarvellEmbeddedProcessors/atf-marvell
+	#git clone --depth 1 -b atf-v1.3-armada-17.10 https://github.com/MarvellEmbeddedProcessors/atf-marvell
+	git clone --depth 1 -b atf-v1.3-armada-17.10-fixed https://github.com/OpenMandrivaSoftware/atf-marvell
 	### FIXME switch to mv_ddr-armada-17.10 branch of https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
 	### when our patch to fix building with current toolchains has been accepted
 	#git clone --depth 1 -b mv_ddr-armada-17.10 https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
@@ -80,8 +81,8 @@ make USE_COHERENT_MEM=0 LOG_LEVEL=20 MV_DDR_PATH=$(pwd)/../mv-ddr-marvell PLAT=a
 cp build/a80x0_mcbin/release/flash-image.bin ..
 cd ..
 
-# https://abf.openmandriva.org/platforms/cooker/products/47/product_build_lists/1179
-ROOTFS_HASH="3286a8ee346d0cf82a7c5c607a9564ce96fd909e"
+# https://abf.openmandriva.org/platforms/cooker/products/47/product_build_lists/1562
+ROOTFS_HASH="72e43595883f96fb2e8906e650d33e481a623f3a"
 [ -e rootfs-aarch64-systemd.tar.xz ] || wget -O rootfs-aarch64-systemd.tar.xz http://file-store.openmandriva.org/api/v1/file_stores/$ROOTFS_HASH
 
 KERNEL=$(cat ${KERNELDIR}/include/config/kernel.release)
