@@ -23,9 +23,13 @@ U-Boot uses the Ethernet port next to the USB port, so make sure that one is
 connected.
 
 Then, in u-boot (the prompt you get from the board's serial console), run
-`env default -a`
-`env save`
-`bubt`
+```
+env default -a
+env save
+setenv serverip 1.2.3.4 (where 1.2.3.4 is your TFTP server's IP address)
+setenv ipaddr 1.2.3.5 (where 1.2.3.5 is the temporary IP address your board can take)
+bubt
+```
 
 (Watch out for failed downloads, they're usually related to the IP address
 not being set correctly. Set the variables bubt tells you about.)
