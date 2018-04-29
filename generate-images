@@ -14,19 +14,13 @@ if [ -z "$ROOTFS" ]; then
 	exit 1
 fi
 
-which aarch64-linux-gnu-ld &>/dev/null || urpmi --auto --no-verify-rpm cross-aarch64-mandriva-linux-gnu-binutils
-which make &>/dev/null || urpmi --auto --no-verify-rpm make glibc-devel
-which bc &>/dev/null || urpmi --auto --no-verify-rpm bc
-which gcc &>/dev/null || urpmi --auto --no-verify-rpm gcc
-which aarch64-linux-gnu-gcc &>/dev/null || urpmi --auto --no-verify-rpm cross-aarch64-mandriva-linux-gnu-gcc-bootstrap
-which dtc &>/dev/null || urpmi --auto --no-verify-rpm dtc
-which make_ext4fs &>/dev/null || urpmi --auto --no-verify-rpm android-tools
-which qemu-static-aarch64 &>/dev/null || ( urpmi --auto --no-verify-rpm qemu-static-aarch64 && systemctl restart systemd-binfmt )
-
-if ! which make_ext4fs &>/dev/null; then
-	echo "Install android-tools from cooker"
-	exit 1
-fi
+which aarch64-linux-gnu-ld &>/dev/null || dnf -y --nogpgcheck install cross-aarch64-mandriva-linux-gnu-binutils
+which make &>/dev/null || dnf -y --nogpgcheck install make glibc-devel
+which bc &>/dev/null || dnf -y --nogpgcheck install bc
+which gcc &>/dev/null || dnf -y --nogpgcheck install gcc
+which aarch64-linux-gnu-gcc &>/dev/null || dnf -y --nogpgcheck install cross-aarch64-mandriva-linux-gnu-gcc-bootstrap
+which dtc &>/dev/null || dnf -y --nogpgcheck install dtc
+which qemu-static-aarch64 &>/dev/null || ( dnf -y --nogpgcheck install qemu-static-aarch64 && systemctl restart systemd-binfmt )
 
 if [ -d kernel ]; then
 	cd kernel
@@ -39,7 +33,7 @@ KERNELDIR=$(pwd)/kernel
 
 cd kernel
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- mcbin_defconfig
-make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(getconf _NPROCESSORS_ONLN) Image dtbs modules
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LD=aarch64-linux-gnu-ld.bfd -j$(getconf _NPROCESSORS_ONLN) Image dtbs modules
 cd ..
 
 if [ -d u-boot-marvell ]; then
@@ -83,8 +77,8 @@ make USE_COHERENT_MEM=0 LOG_LEVEL=20 MV_DDR_PATH=$(pwd)/../mv-ddr-marvell PLAT=a
 cp build/a80x0_mcbin/release/flash-image.bin ..
 cd ..
 
-# https://abf.openmandriva.org/platforms/cooker/products/47/product_build_lists/1716
-ROOTFS_HASH="b1e2f31ad3267b8de546a0a7bea752e3aaf75b9b"
+# https://abf.openmandriva.org/platforms/cooker/products/47/product_build_lists/1812
+ROOTFS_HASH="dde97cebb98711e5b474cb4f1bdb4d5fb32dec31"
 [ -e rootfs-aarch64-systemd.tar.xz ] || wget -O rootfs-aarch64-systemd.tar.xz http://file-store.openmandriva.org/api/v1/file_stores/$ROOTFS_HASH
 
 KERNEL=$(cat ${KERNELDIR}/include/config/kernel.release)
@@ -115,26 +109,36 @@ for i in arch/arm64/boot/Image* arch/arm64/boot/dts/marvell/armada-8040-mcbin.dt
 	ln -s $(basename $i)-${KERNEL} ${ROOTFS}/boot/$(basename $i)
 done
 make modules_install INSTALL_MOD_PATH=${ROOTFS} ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
-chroot ${ROOTFS} /usr/sbin/urpmi --auto --no-verify-rpm --auto-update
-chroot ${ROOTFS} /usr/sbin/urpmi --no-verify-rpm --auto kernel-firmware dracut less procps-ng htop fbset iproute2 net-tools pciutils usbutils wpa_supplicant iw iproute2 net-tools wireless-tools networkmanager openssh-server dhcp-client
-chroot ${ROOTFS} /usr/sbin/urpmi --no-verify-rpm --auto sddm x11-driver-video-ati x11-driver-video-amdgpu x11-driver-video-nouveau x11-driver-video-modesetting radeon-firmware lib64dri-drivers-radeon lib64dri-drivers-nouveau lib64dri-drivers-swrast lib64vdpau-driver-radeonsi lib64vdpau-driver-r300 lib64vdpau-driver-r600 lib64vdpau-driver-nouveau lib64vdpau-driver-softpipe
-chroot ${ROOTFS} /usr/sbin/urpmi --no-verify-rpm --auto vim-enhanced strace
-chroot ${ROOTFS} /usr/sbin/urpmi --no-verify-rpm --auto task-plasma-minimal
-chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto basesystem-minimal distro-release-common distro-release-OpenMandriva meta-task alsa-plugins alsa-plugins-pulseaudio alsa-utils bootsplash bootloader-utils \
+
+### FIXME -- remove 
+cd ${ROOTFS}
+git clone https://github.com/OpenMandrivaSoftware/openmandriva-updater
+chroot ${ROOTFS} /bin/sh /openmandriva-updater/3.x-to-cooker.sh
+chroot ${ROOTFS} /usr/bin/dnf -y clean all
+### -- From here on, should be kept
+
+chroot ${ROOTFS} /usr/bin/dnf -y --refresh --nogpgcheck --forcearch=aarch64 distro-sync
+chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install kernel-firmware dracut less procps-ng htop fbset iproute2 net-tools pciutils usbutils wpa_supplicant iw iproute2 net-tools wireless-tools networkmanager openssh-server dhcp-client
+chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install sddm x11-driver-video-ati x11-driver-video-amdgpu x11-driver-video-nouveau x11-driver-video-modesetting radeon-firmware lib64dri-drivers-radeon lib64dri-drivers-nouveau lib64dri-drivers-swrast lib64vdpau-driver-radeonsi lib64vdpau-driver-r300 lib64vdpau-driver-r600 lib64vdpau-driver-nouveau lib64vdpau-driver-softpipe
+chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install vim-enhanced strace
+#chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install task-plasma-minimal falkon
+chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install basesystem-minimal distro-release-common distro-release-OpenMandriva meta-task alsa-plugins-pulseaudio alsa-utils bootsplash \
 	distro-theme-OpenMandriva distro-theme-OpenMandriva-screensaver dynamic indexhtml info info-install irqbalance mailcap man mktemp mkxauth mlocate plymouth-system-theme shared-desktop-ontologies \
 	sound-scripts sound-theme-freedesktop soundwrapper sudo task-x11 tmpwatch upower urw-fonts wget whois xdg-compliance xdg-user-dirs xdg-utils xrandr zip unzip \
-	aria2 bash-completion bind-utils cdialog command-not-found gnupg htop lame networkmanager-openvpn open rsync sane-backends sash qupzilla fonts-ttf-decoratives fonts-ttf-dejavu \
+	aria2 bash-completion bind-utils cdialog command-not-found gnupg htop lame networkmanager-openvpn open rsync sane-backends sash fonts-ttf-decoratives fonts-ttf-dejavu \
 	fonts-ttf-droid fonts-ttf-liberation fonts-ttf-west_european google-crosextra-carlito-fonts google-crosextra-caladea-fonts noto-sans-fonts \
 	noto-sans-cjk-fonts noto-serif-fonts noto-serif-thai x11-font-cyrillic x11-compose-cache x11-tools x11-font-type1 x11-font-misc x11-data-cursor-themes \
 	task-pulseaudio alsa-plugins-pulseaudio pavucontrol-qt pulseaudio pulseaudio-module-bluetooth pulseaudio-module-gconf pulseaudio-module-x11 pulseaudio-module-zeroconf pulseaudio-utils \
-	smplayer mpv udisks2
-#chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto task-printing libreoffice-calc libreoffice-common libreoffice-draw libreoffice-impress libreoffice-kde4 libreoffice-math libreoffice-style-oxygen libreoffice-writer
-chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto extremetuxracer
-chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto kernel-firmware adreno-firmware dracut less procps-ng htop fbset iproute2 net-tools pciutils usbutils wpa_supplicant iw iproute2 net-tools wireless-tools networkmanager openssh-server dhcp-client
-chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto sddm x11-driver-video-modesetting lib64dri-drivers-freedreno
-chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto task-plasma phonon4qt5-gstreamer fcitx-qt5 showfoto enchant ffmpeg jasper nss openssl poppler-data oma-welcome
-#chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto task-lxqt
-chroot ${ROOTFS} /usr/sbin/urpmi --downloader wget --no-verify-rpm --auto vim-enhanced strace
+	udisks2
+#chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install bootloader-utils alsa-plugins
+#chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install smplayer mpv
+#chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install task-printing libreoffice-calc libreoffice-common libreoffice-draw libreoffice-impress libreoffice-kde4 libreoffice-math libreoffice-style-oxygen libreoffice-writer
+chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install extremetuxracer
+chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install kernel-firmware adreno-firmware dracut less procps-ng htop fbset iproute2 net-tools pciutils usbutils wpa_supplicant iw iproute2 net-tools wireless-tools networkmanager openssh-server dhcp-client
+chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install sddm x11-driver-video-modesetting lib64dri-drivers-freedreno
+#chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install task-plasma phonon4qt5-gstreamer fcitx-qt5 showfoto enchant ffmpeg jasper nss openssl poppler-data oma-welcome
+#chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install task-lxqt
+chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install vim-enhanced strace
 chroot ${ROOTFS} /sbin/dracut --xz -o ifcfg -o lvm -o mdraid -o aufs-mount -f /boot/initrd-${KERNEL}.img ${KERNEL}
 chroot ${ROOTFS} systemctl set-default graphical.target
 chroot ${ROOTFS} systemctl enable getty@tty1.service
@@ -202,4 +206,3 @@ if [ "$ABF" = "1" ]; then
 	make mrproper
 	popd
 fi
-
