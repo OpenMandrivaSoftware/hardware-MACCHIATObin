@@ -62,7 +62,7 @@ else
 	### FIXME switch to mv_ddr-armada-17.10 branch of https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
 	### when our patch to fix building with current toolchains has been accepted
 	#git clone --depth 1 -b mv_ddr-armada-17.10 https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
-	git clone --depth 1 -b omv-gcc72-17.10 https://github.com/OpenMandrivaSoftware/mv-ddr-marvell
+	git clone --depth 1 -b mv_ddr-armada-17.10-gcc8-workaround https://github.com/OpenMandrivaSoftware/mv-ddr-marvell
 	# Got to love the fact that upstream uses tools that predate dinosaurs...
 	sed -i -e 's,python \$(srctree),python2 $(srctree),g' u-boot-marvell/tools/Makefile
 fi
