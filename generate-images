@@ -129,7 +129,7 @@ chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install basesy
 	fonts-ttf-droid fonts-ttf-liberation fonts-ttf-west_european google-crosextra-carlito-fonts google-crosextra-caladea-fonts noto-sans-fonts \
 	noto-sans-cjk-fonts noto-serif-fonts noto-serif-thai x11-font-cyrillic x11-compose-cache x11-tools x11-font-type1 x11-font-misc x11-data-cursor-themes \
 	task-pulseaudio alsa-plugins-pulseaudio pavucontrol-qt pulseaudio pulseaudio-module-bluetooth pulseaudio-module-gconf pulseaudio-module-x11 pulseaudio-module-zeroconf pulseaudio-utils \
-	udisks2
+	udisks2 systemd-console
 #chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install bootloader-utils alsa-plugins
 #chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install smplayer mpv
 #chroot ${ROOTFS} /usr/bin/dnf -y --nogpgcheck --forcearch=aarch64 install task-printing libreoffice-calc libreoffice-common libreoffice-draw libreoffice-impress libreoffice-kde4 libreoffice-math libreoffice-style-oxygen libreoffice-writer
