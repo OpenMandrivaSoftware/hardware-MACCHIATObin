@@ -27,7 +27,10 @@ if [ -d kernel ]; then
 	git pull
 	cd ..
 else
-	git clone --depth 1 -b hardware/MACCHIATObin/master https://github.com/OpenMandrivaSoftware/linux.git kernel
+	# To test a new kernel: git clone --depth 1 -b hardware/MACCHIATObin/master https://github.com/OpenMandrivaSoftware/linux.git kernel
+	# Last known good master: git clone --depth 1 -b MACCHIATObin-master-known-good https://github.com/OpenMandrivaSoftware/linux.git kernel
+	# Based on latest stable-X.Z.Y branch (might be newer than MACCHIATObin-master-known-good at times)
+	git clone --depth 1 -b hardware/MACCHIATObin/4.16 https://github.com/OpenMandrivaSoftware/linux.git kernel
 fi
 KERNELDIR=$(pwd)/kernel
 
@@ -115,6 +118,7 @@ cd ${ROOTFS}
 git clone https://github.com/OpenMandrivaSoftware/openmandriva-updater
 chroot ${ROOTFS} /bin/sh /openmandriva-updater/3.x-to-cooker.sh
 chroot ${ROOTFS} /usr/bin/dnf -y clean all
+rm -rf openmandriva-updater
 ### -- From here on, should be kept
 
 chroot ${ROOTFS} /usr/bin/dnf -y --refresh --nogpgcheck --forcearch=aarch64 distro-sync
@@ -156,7 +160,7 @@ for i in sddm; do
 done
 cat >${ROOTFS}/etc/fstab <<'EOF'
 /dev/mmcblk1p1	/	ext4	defaults,noatime,discard	0	0
-/dev/mmcblk1p2	/home	ext4	defaults,noatime,discard	0	1
+#/dev/mmcblk1p2	/home	ext4	defaults,noatime,discard	0	1
 EOF
 
 # FIXME REMOVE BEFORE PRODUCTION BUILD -- allow root login for convenience
