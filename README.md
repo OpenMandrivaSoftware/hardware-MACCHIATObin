@@ -26,6 +26,7 @@ Then, in u-boot (the prompt you get from the board's serial console), run
 ```
 env default -a
 env save
+setenv ethact eth2 (where eth2 is the ethernet port you want to use)
 setenv serverip 1.2.3.4 (where 1.2.3.4 is your TFTP server's IP address)
 setenv ipaddr 1.2.3.5 (where 1.2.3.5 is the temporary IP address your board can take)
 bubt
