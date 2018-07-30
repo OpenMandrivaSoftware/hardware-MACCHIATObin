@@ -55,17 +55,17 @@ else
 	### - fix building with current toolchains
 	### - enable USB 2.0 ports
 	### have been accepted
-	#git clone --depth 1 -b u-boot-2017.03-armada-17.10 https://github.com/MarvellEmbeddedProcessors/u-boot-marvell
-	git clone --depth 1 -b 17.10-omv https://github.com/OpenMandrivaSoftware/u-boot-marvell
-	git clone --depth 1 -b binaries-marvell-armada-17.10 https://github.com/MarvellEmbeddedProcessors/binaries-marvell
-	### FIXME switch to atf-v1.3-armada-17.10 branch of https://github.com/MarvellEmbeddedProcessors/atf-marvell
+	#git clone --depth 1 -b u-boot-2017.03-armada-18.06 https://github.com/MarvellEmbeddedProcessors/u-boot-marvell
+	git clone --depth 1 -b 18.06-omv https://github.com/OpenMandrivaSoftware/u-boot-marvell
+	git clone --depth 1 -b binaries-marvell-armada-18.06 https://github.com/MarvellEmbeddedProcessors/binaries-marvell
+	### FIXME switch to atf-v1.4-armada-18.06 branch of https://github.com/MarvellEmbeddedProcessors/atf-marvell
 	### when our patch to fix building with current toolchains has been accepted
-	#git clone --depth 1 -b atf-v1.3-armada-17.10 https://github.com/MarvellEmbeddedProcessors/atf-marvell
-	git clone --depth 1 -b atf-v1.3-armada-17.10-fixed https://github.com/OpenMandrivaSoftware/atf-marvell
-	### FIXME switch to mv_ddr-armada-17.10 branch of https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
+	#git clone --depth 1 -b atf-v1.4-armada-18.06 https://github.com/MarvellEmbeddedProcessors/atf-marvell
+	git clone --depth 1 -b atf-v1.4-armada-18.06-gcc8 https://github.com/OpenMandrivaSoftware/atf-marvell
+	### FIXME switch to mv_ddr-armada-18.06 branch of https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
 	### when our patch to fix building with current toolchains has been accepted
-	#git clone --depth 1 -b mv_ddr-armada-17.10 https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
-	git clone --depth 1 -b mv_ddr-armada-17.10-gcc8-workaround https://github.com/OpenMandrivaSoftware/mv-ddr-marvell
+	#git clone --depth 1 -b mv_ddr-armada-18.06 https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
+	git clone --depth 1 -b mv_ddr-armada-18.06-gcc8-workaround https://github.com/OpenMandrivaSoftware/mv-ddr-marvell
 	# Got to love the fact that upstream uses tools that predate dinosaurs...
 	sed -i -e 's,python \$(srctree),python2 $(srctree),g' u-boot-marvell/tools/Makefile
 fi
@@ -74,7 +74,7 @@ make mvebu_mcbin-88f8040_defconfig CROSS_COMPILE=aarch64-linux-gnu-
 make -j4 CROSS_COMPILE=aarch64-linux-gnu-
 export BL33=$(pwd)/u-boot.bin
 cd ..
-export SCP_BL2=$(pwd)/binaries-marvell/mrvl_scp_bl2_8040.img
+export SCP_BL2=$(pwd)/binaries-marvell/mrvl_scp_bl2_mss_ap_cp1_a8040.img
 cd atf-marvell
 make USE_COHERENT_MEM=0 LOG_LEVEL=20 MV_DDR_PATH=$(pwd)/../mv-ddr-marvell PLAT=a80x0_mcbin CROSS_COMPILE=aarch64-linux-gnu- LD=aarch64-linux-gnu-ld.bfd all fip
 cp build/a80x0_mcbin/release/flash-image.bin ..
